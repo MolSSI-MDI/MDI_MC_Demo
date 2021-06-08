@@ -72,6 +72,7 @@ import numpy as np
 
 We want both of these dependencies to be installed during the `build_image` step.
 In addition, we should install the cmake and the MDI Library, as the engine will need it later.
+Finally, we will want the image to have `git` installed, so that we can acquire a copy of the MDI_MC_Demo GitHub repository.
 Modify the `build_image` step to read:
 ```
   build_image:
@@ -79,6 +80,8 @@ Modify the `build_image` step to read:
     - pip install numpy
     - pip install cmake
     - pip install pymdi
+    - apt-get update
+    - apt-get install -y git
 ```
 
 We can now check to see if MDI Mechanic is able to build the image by executing the following command, in the same directory where `mdimechanic.yml` is located:
@@ -97,6 +100,25 @@ Our current `build_engine` script reads:
     - echo "Insert commands to build your engine code here"
 ```
 Unsurprisingly, when our new Docker container executes this script, it prints the line we saw at the end of the `mdimechanic build` execution.
+
+## Build the engine using MDI Mechanic
+
+We now need to modify the `build_engine` script so that it correctly acquires and installs the MDI_MC_Demo Python package.
+This script should first create a clone of the MDI_MC_Demo Python package.
+Then, it should install the repository using its `setup.py` file.
+Modify the `build_engine` step to read:
+```
+  build_engine:
+    - |
+      if [ ! -d "build/MDI_MC_Demo" ]; then
+        git clone https://github.com/MolSSI-MDI/MDI_MC_Demo.git build/MDI_MC_Demo
+      fi
+    - cd build/MDI_MC_Demo
+    - pip install -e .
+```
+
+
+
 
 ### Copyright
 
