@@ -173,7 +173,8 @@ MDI engines are expected to accept `-mdi` command-line option, which allows the 
 Modify the beginning of the `main` function to receive the `-mdi` command-line option:
 ```Python
 def main():
-    # Receive the -mdi option                                                                                                                                    
+
+    # Receive the -mdi option
     mdi_options = None
     use_mdi = False
     for iarg in range( len(sys.argv) ):
@@ -185,10 +186,67 @@ def main():
               	raise Exception('Argument to -mdi option was not provided')
 ```
 
-Now, initialize the MDI Library:
+Immediately after these lines, initialize the MDI Library:
+```Python
+    if use_mdi:
+        mdi.MDI_Init(mdi_options)
+```
 
+One of the early lines in `main()` is:
+```Python
+    world_comm = MPI.COMM_WORLD
+```
+Replace this line with:
+```Python
+    world_comm = MPI.COMM_WORLD
+    if use_mdi:
+        world_comm = mdi.MDI_MPI_get_world_comm()
+```
+This ensures that the MDI_MC_Demo engine will use the correct MPI communicator if the MDI communication is handled via MPI.
 
+It is now necessary for the engine to establish a connection with the external driver.
+Just before the comment in `main()` that reads `Parameter setup`, insert the following code:
+```Python
+    # Establish a connection with an external driver
+    mdi_comm = None
+    if use_mdi:
+        mdi_comm = mdi.MDI_Accept_communicator()
+```
 
+We now need to write code that will enable MDI_MC_Demo to receive and correctly respond to commands from the driver.
+At the beginning of the `MDI_MC_Demo.py`, just under the import statements, insert the following function:
+```Python
+def run_mdi(node_name, my_rank, world_comm, mdi_comm):
+ 
+    exit_flag = False
+ 
+    # Main MDI loop
+    while not exit_flag:
+        # Receive a command from the driver
+        command = mdi.MDI_Recv_command(self.comm)
+ 
+        # Broadcast the command to all ranks
+        command = world_comm.bcast(command, root=0)
+ 
+        # Respond to the received command
+        if command == "EXIT":
+            exit_flag = True
+        else:
+            # The received command is not recognized by this engine, so exit
+            raise Exception('MDI Engine received unrecognized command: ' + str(command))
+```
+
+Finally, we will call this code immediately before the Monte Carlo simulation begins.
+In `main()`, immediately before the beginning of the main Monte Carlo loop (which begins with `for i_step in range(n_steps):`) insert a call to the `run_mdi` function.
+This should look like:
+```Python
+    n_trials = 0
+
+    if use_mdi:
+        run_mdi("@DEFAULT", my_rank, world_comm, mdi_comm)
+
+    for i_step in range(n_steps):
+```
 
 
 ### Copyright
