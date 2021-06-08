@@ -103,9 +103,8 @@ Unsurprisingly, when our new Docker container executes this script, it prints th
 
 ## Build the engine using MDI Mechanic
 
-We now need to modify the `build_engine` script so that it correctly acquires and installs the MDI_MC_Demo Python package.
-This script should first create a clone of the MDI_MC_Demo Python package.
-Then, it should install the repository using its `setup.py` file.
+We now need to modify the `build_engine` script so that it correctly acquires a clone of the MDI_MC_Demo Python package.
+Because this engine is a Python script, it is not necessary to compile anything during the `build_image` step.
 Modify the `build_engine` step to read:
 ```
   build_engine:
@@ -113,9 +112,46 @@ Modify the `build_engine` step to read:
       if [ ! -d "build/MDI_MC_Demo" ]; then
         git clone https://github.com/MolSSI-MDI/MDI_MC_Demo.git build/MDI_MC_Demo
       fi
-    - cd build/MDI_MC_Demo
-    - pip install -e .
+    - echo "Finished build_engine step"
 ```
+
+Now if you execute `mdimechanic build` again, the output should end with:
+```
+Finished build_engine step
+```
+
+## Verify that the engine can be run
+
+The primary purpose of MDI Mechanic is to portably validate MDI implementations.
+You can run the full set of MDI Mechanic tests by executing the following command in the same directory where `mdimechanic.yml` is located:
+```
+mdimechanic report
+```
+The command will immediately return with the following error:
+```
+Exception: Error: Unable to verify that the engine was built.
+```
+The first test that MDI Mechanic performs is a test to confirm that the engine can be run successfully.
+It does this by executing the script you provide in `validate_engine` in `mdimechanic.yml`.
+We need to modify this script so that it corresponds to a basic test that confirms we are able to run the engine through MDI Mechanic.
+The script should not test any MDI-specific functionality - it should only confirm that we can run MDI_MC_Demo.
+
+Modify the `validate_engine` script so that it reads:
+```
+  validate_engine:
+    - cd build/MDI_MC_Demo/MDI_MC_Demo
+    - python MDI_MC_Demo.py
+```
+Now execute `mdimechanic report` again.
+The output should indicate that MDI Mechanic was able to execute the `validate_engine` step successfully, but that it also found that MDI_MC_Demo lacks minimal MDI functionality:
+```
+Starting a report
+Success: Able to verify that the engine was built
+...
+Exception: Error: Engine failed minimal MDI functionality test.
+```
+This is expected, since we have not yet begun to implement MDI support in MDI_MC_Demo.
+
 
 
 
