@@ -223,7 +223,7 @@ def run_mdi(node_name, my_rank, world_comm, mdi_comm):
     # Main MDI loop
     while not exit_flag:
         # Receive a command from the driver
-        command = mdi.MDI_Recv_command(self.comm)
+        command = mdi.MDI_Recv_command(mdi_comm)
  
         # Broadcast the command to all ranks
         command = world_comm.bcast(command, root=0)
@@ -246,6 +246,32 @@ This should look like:
         run_mdi("@DEFAULT", my_rank, world_comm, mdi_comm)
 
     for i_step in range(n_steps):
+```
+
+That's everything we need for basic MDI functionality.
+Before MDI Mechanic can test our MDI implementation, we need to tell MDI Mechanic how to run MDI_MC_Demo as an MDI engine.
+For a normal user, this is done simply by launching MDI_MC_Demo with an additional `-mdi` command-line option.
+For example:
+```
+python MDI_MC_Demo.py -mdi "-name engine -role ENGINE -method TCP -hostname localhost -port 8021"
+```
+MDI Mechanic sets the argument to the `-mdi` option to an environment variable called `MDI_OPTIONS`.
+Provide MDI Mechanic with an MDI-enabled launch script by modifying the `engine_tests` field in `mdimechanic.yml` to the following:
+```
+engine_tests:
+  # Provide at least one example input that can be used to test your code's MDI functionality
+  - script:
+      -	cd build/MDI_MC_Demo/MDI_MC_Demo
+      -	python MDI_MC_Demo.py -mdi "${MDI_OPTIONS}"
+```
+
+Now execute `mdimechanic report` in the directory where `mdimechanic.yml` is located.
+The first few lines of output should be:
+```
+Starting a report
+Success: Able to verify that the engine was built
+Success: Engine passed minimal MDI functionality test.
+Success: Engine errors out upon receiving an unsupported command.
 ```
 
 
