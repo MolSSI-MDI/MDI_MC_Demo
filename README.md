@@ -154,6 +154,41 @@ This is expected, since we have not yet begun to implement MDI support in MDI_MC
 
 
 
+## Implement basic MDI support
+
+We will now begin to implement support for MDI_MC_Demo to act as an MDI engine.
+When MDI Mechanic previously executed the `build_engine` step, it cloned the MDI_MC_Demo repository into `build/MDI_MC_Demo`.
+Open the repository's Python code, which is located at `build/MDI_MC_Demo/MDI_MC_Demo/MDI_MC_Demo.py`.
+
+We need to add `import mdi` to the file's import statements.
+Later on, we will also need access to `sys`, so the full set of import statements should be:
+```Python
+from mpi4py import MPI
+import numpy as np
+import mdi
+import sys
+```
+
+MDI engines are expected to accept `-mdi` command-line option, which allows the end-user to configure various MDI runtime options (*i.e.*, whether MDI will communicate between codes using MPI or TCP/IP sockets, *etc.*).
+Modify the beginning of the `main` function to receive the `-mdi` command-line option:
+```Python
+def main():
+    # Receive the -mdi option                                                                                                                                    
+    mdi_options = None
+    use_mdi = False
+    for iarg in range( len(sys.argv) ):
+        if sys.argv[iarg] == "-mdi" or sys.argv[iarg] == "--mdi":
+            if len(sys.argv) > iarg + 1:
+                mdi_options = sys.argv[iarg+1]
+                use_mdi = True
+            else:
+              	raise Exception('Argument to -mdi option was not provided')
+```
+
+Now, initialize the MDI Library:
+
+
+
 
 
 ### Copyright
