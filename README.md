@@ -52,7 +52,7 @@ This tutorial will go over each field in mdimechanic.yml in detail, but the foll
 * **validate_engine:** This provides a script to verify that your engine has been built successfully. It is comparable to a script step in some CI services.
 * **engine_tests:** This provides scripts used to test MDI functionality in your engine.
 
-For now, just replace the value of `code_name` with the name of the engine (`MDI_MC_Demo`), and set the value of `image_name` to `MDI_MC_Demo/mdi_report`
+For now, just replace the value of `code_name` with the name of the engine (`MDI_MC_Demo`), and set the value of `image_name` to `mdi_mc_demo/mdi_report`
 
 ## Define the engine's dependencies using MDI Mechanic
 
@@ -71,13 +71,32 @@ import numpy as np
 ```
 
 We want both of these dependencies to be installed during the `build_image` step.
+In addition, we should install the cmake and the MDI Library, as the engine will need it later.
 Modify the `build_image` step to read:
 ```
   build_image:
     - pip install mpi4py
     - pip install numpy
+    - pip install cmake
+    - pip install pymdi
 ```
 
+We can now check to see if MDI Mechanic is able to build the image by executing the following command, in the same directory where `mdimechanic.yml` is located:
+```
+mdimechanic build
+```
+This command may take a few minutes to execute, during which time Docker is working to build an image according to the instructions we gave it.
+If everything worked correctly, you should see the following line printed out at the end:
+```
+Insert commands to build your engine code here
+```
+This line is printed by MDI Mechanic after it has built the image: specifically, after building the image, MDI Mechanic launches an instance of this image (*e.g.*, a container), and executes `build_engine` script in `mdimechanic.yml` **within that container**.
+Our current `build_engine` script reads:
+```
+  build_engine:
+    - echo "Insert commands to build your engine code here"
+```
+Unsurprisingly, when our new Docker container executes this script, it prints the line we saw at the end of the `mdimechanic build` execution.
 
 ### Copyright
 
