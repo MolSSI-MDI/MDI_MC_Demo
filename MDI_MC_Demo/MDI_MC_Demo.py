@@ -275,8 +275,8 @@ def main():
 
     reduced_temperature = 0.9
     reduced_density = 0.9
-    n_steps = 10000
-    freq = 1000
+    n_steps = 100
+    freq = 10
     num_particles = 100
     simulation_cutoff = 3.0
     max_displacement = 0.1
