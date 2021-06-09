@@ -333,7 +333,7 @@ If you rerun `mdimechanic report`, the output should indicate that all four of t
 ## Add support for the `<ENERGY` and `>ENERGY` commands
 
 We now need to add support for the `<ENERGY` and `>ENERGY` commands.
-Adding the following lines to the `if ... else` in `mdi_node` is sufficient:
+Adding the following lines to the `if ... else` in `mdi_node` is sufficient to support the `<ENERGY` command:
 ```Python
             elif command == "<ENERGY":
                 if energy is None:
@@ -401,18 +401,72 @@ Add the `@INIT_MC` node immediately after the `@DEFAULT` node, so that the first
                 return
 ```
 
-We now need `MDI_MC_Demo` to be able to listen for commands everytime it recomputes the forces.
+We now need `MDI_MC_Demo` to be able to listen for commands everytime it recomputes the energy.
+The first time the energy is calcualted is just before the Monte Carlo iterate loop begins.
+Insert the following code just before the comment that reads `Main Monte Carlo loop`:
+```Python
+            if self.use_mdi:
+                # @ENERGY node
+                self.mdi_node("@ENERGY",
+                              coordinates = self.coordinates,
+                              energy = total_energy)
+                if self.energy_from_driver:
+                    total_energy = self.energy_from_driver
+                if self.command == "EXIT":
+                    return
+```
+The energy is then recomputed during every iteration of the Monte Carlo loop.
 Insert the following just before the comment that reads `Accept or reject the step`:
 ```Python
             if self.use_mdi:
                 # @ENERGY node
                 self.mdi_node("@ENERGY",
-                              coordinates=proposed_coordinates,
-                              energy=total_energy+delta_e)
+                              coordinates = proposed_coordinates,
+                              energy = total_energy + delta_e)
+                if self.energy_from_driver:
+                    delta_e = self.energy_from_driver - total_energy
                 if self.command == "EXIT":
                     return
 ```
 
+Finally, there are some node-related commands that we need to support.
+Add the following to the `mdi_node` `if ... else`:
+```Python
+            elif self.command == "@INIT_MC":
+                self.target_node = "@INIT_MC"
+                return
+
+            elif self.command == "@ENERGY":
+                self.target_node = "@ENERGY"
+                return
+
+            elif self.command == "@":
+                self.target_node = "@"
+                return
+
+            elif self.command == "<@":
+                mdi.MDI_Send(node_name, mdi.MDI_NAME_LENGTH, mdi.MDI_CHAR, self.mdi_comm)
+```
+The `@INIT_MC` and `@ENERGY` commands tell the engine to proceed to those particular nodes.
+The `@` is only valid if the driver has previously commanded the engine to initialize a simulation (*i.e.*, by sending an `@INIT_MD`, `@INIT_MC`, or `@INIT_OPTG` command), and commands the engine to proceed to the next node, regardless of the name of the node.
+The `<@` command requests that the engine send the name of the current node.
+
+In order to ensure that the code proceeds to the correct nodes in response to one of the `@INIT_MC`, `@ENERGY`, or `@` commands from the driver, insert the following at the very beginning of the `mdi_node` function:
+```Python
+        if self.target_node is not None:
+            if self.target_node == node_name or self.target_node == "@":
+                # Reset the target node and proceed to listen for comands at this node
+                self.target_node = None
+            else:
+                # Ignore this node completely
+                return
+```
+
+Then initialize `self.target_node` to `None` in the `MCSimulation` initialization function:
+```Python
+            # Initialize the MDI target node
+            self.target_node = None
+```
 
 
 
