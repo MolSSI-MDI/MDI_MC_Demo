@@ -372,6 +372,7 @@ class MCSimulation:
             proposed_energy = self.get_particle_energy(proposed_coordinates, self.box_length, i_particle, self.reduced_simulation_cutoff2)
             self.total_energy_time += MPI.Wtime() - start_energy_time
 
+            # Accept or reject the step
             if self.my_rank == 0:
                 start_decision_time = MPI.Wtime()
 
