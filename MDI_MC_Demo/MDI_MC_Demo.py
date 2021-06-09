@@ -11,6 +11,11 @@ import numpy as np
 
 class MCSimulation:
     def __init__(self):
+
+        #-------------------
+        # MPI Initialization
+        #-------------------
+
         self.start_simulation_time = MPI.Wtime()
         self.total_energy_time = 0.0
         self.total_decision_time = 0.0
@@ -19,23 +24,50 @@ class MCSimulation:
         self.world_size = self.world_comm.Get_size()
         self.my_rank = self.world_comm.Get_rank()
 
-        #----------------
-        # Parameter setup
-        #----------------
+        #----------------------
+        # Adjustable Parameters
+        #----------------------
 
-        self.reduced_temperature = 0.9
-        self.reduced_density = 0.9
+        # Temperature of the simulation in Kelvin
+        self.temperature = 120.0
+
+        # Particle mass in kilograms
+        self.mass = 39.948 * 1.66054e-27
+
+        # System density in kg / m^3
+        self.density = 1500.0
+
+        # Lennard-Jones parameters, in SI units
+        self.sigma = 3.4e-10
+        self.epsilon = 1.65e-21
+
+        # Distance cutoff for the Lennard-Jones potential, in meters
+        self.distance_cutoff = 3.0 * self.sigma
+
+        # Maximum test displacement, in meters
+        self.max_displacement = 0.1 * self.sigma
+
         self.n_steps = 100
         self.freq = 10
         self.num_particles = 100
-        self.simulation_cutoff = 3.0
-        self.max_displacement = 0.1
         self.tune_displacement = True
         self.build_method = 'random'
 
+        #-------------------------
+        # Fixed/Derived Parameters
+        #-------------------------
+
+        # Boltzmann constant in SI units
+        self.boltzmann = 1.38064852e-23
+
+        self.reduced_temperature = self.temperature / (self.epsilon / self.boltzmann)
+        self.reduced_density = self.density / (self.mass / self.sigma**3)
+        self.reduced_max_displacement = self.max_displacement / self.sigma
+        self.reduced_simulation_cutoff = self.distance_cutoff / self.sigma
+
         self.box_length = np.cbrt(self.num_particles / self.reduced_density)
         self.beta = 1.0 / self.reduced_temperature
-        self.simulation_cutoff2 = np.power(self.simulation_cutoff, 2)
+        self.reduced_simulation_cutoff2 = np.power(self.reduced_simulation_cutoff, 2)
 
 
     def generate_initial_state(self, method='random', file_name=None, num_particles=None, box_length=None):
@@ -301,8 +333,8 @@ class MCSimulation:
             coordinates = np.empty([self.num_particles, 3])
         self.world_comm.Bcast( [coordinates, MPI.DOUBLE], root = 0 )
 
-        total_pair_energy = self.calculate_total_pair_energy(coordinates, self.box_length, self.simulation_cutoff2)
-        tail_correction = self.calculate_tail_correction(self.box_length, self.simulation_cutoff, self.num_particles)
+        total_pair_energy = self.calculate_total_pair_energy(coordinates, self.box_length, self.reduced_simulation_cutoff2)
+        tail_correction = self.calculate_tail_correction(self.box_length, self.reduced_simulation_cutoff, self.num_particles)
 
         n_trials = 0
         n_accept = 0
@@ -315,7 +347,7 @@ class MCSimulation:
                 i_particle = np.random.randint(self.num_particles)
                 i_particle_buf = np.array( [i_particle], 'i' )
 
-                random_displacement = (2.0 * np.random.rand(3) - 1.0) * self.max_displacement
+                random_displacement = (2.0 * np.random.rand(3) - 1.0) * self.reduced_max_displacement
             else:
                 i_particle_buf = np.empty( 1, 'i' )
                 random_displacement = np.empty( 3 )
@@ -325,7 +357,7 @@ class MCSimulation:
             self.world_comm.Bcast( [coordinates, MPI.DOUBLE], root = 0 )
 
             start_energy_time = MPI.Wtime()
-            current_energy = self.get_particle_energy(coordinates, self.box_length, i_particle, self.simulation_cutoff2)
+            current_energy = self.get_particle_energy(coordinates, self.box_length, i_particle, self.reduced_simulation_cutoff2)
             self.total_energy_time += MPI.Wtime() - start_energy_time
 
             proposed_coordinates = coordinates.copy()
@@ -333,7 +365,7 @@ class MCSimulation:
             proposed_coordinates -= self.box_length * np.round(proposed_coordinates / self.box_length)
 
             start_energy_time = MPI.Wtime()
-            proposed_energy = self.get_particle_energy(proposed_coordinates, self.box_length, i_particle, self.simulation_cutoff2)
+            proposed_energy = self.get_particle_energy(proposed_coordinates, self.box_length, i_particle, self.reduced_simulation_cutoff2)
             self.total_energy_time += MPI.Wtime() - start_energy_time
 
             if self.my_rank == 0:
@@ -356,7 +388,7 @@ class MCSimulation:
                     print(total_energy)
 
                     if self.tune_displacement:
-                        self.max_displacement, n_trials, n_accept = self.adjust_displacement(n_trials, n_accept, self.max_displacement)
+                        self.reduced_max_displacement, n_trials, n_accept = self.adjust_displacement(n_trials, n_accept, self.reduced_max_displacement)
 
                 self.total_decision_time += MPI.Wtime() - start_decision_time
 
