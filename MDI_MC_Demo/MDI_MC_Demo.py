@@ -11,7 +11,32 @@ import numpy as np
 
 class MCSimulation:
     def __init__(self):
-        pass
+        self.start_simulation_time = MPI.Wtime()
+        self.total_energy_time = 0.0
+        self.total_decision_time = 0.0
+
+        self.world_comm = MPI.COMM_WORLD
+        self.world_size = self.world_comm.Get_size()
+        self.my_rank = self.world_comm.Get_rank()
+
+        #----------------
+        # Parameter setup
+        #----------------
+
+        self.reduced_temperature = 0.9
+        self.reduced_density = 0.9
+        self.n_steps = 100
+        self.freq = 10
+        self.num_particles = 100
+        self.simulation_cutoff = 3.0
+        self.max_displacement = 0.1
+        self.tune_displacement = True
+        self.build_method = 'random'
+
+        self.box_length = np.cbrt(self.num_particles / self.reduced_density)
+        self.beta = 1.0 / self.reduced_temperature
+        self.simulation_cutoff2 = np.power(self.simulation_cutoff, 2)
+
 
     def generate_initial_state(self, method='random', file_name=None, num_particles=None, box_length=None):
         """
@@ -85,6 +110,7 @@ class MCSimulation:
         sig_by_r12 = np.power(sig_by_r6, 2)
         return 4.0 * (sig_by_r12 - sig_by_r6)
 
+
     def calculate_tail_correction(self, box_length, cutoff, number_particles):
         """
         This function computes the standard tail energy correction for the LJ potential
@@ -114,6 +140,7 @@ class MCSimulation:
 
         return e_correction
 
+
     def minimum_image_distance(self, r_i, r_j, box_length):
         # This function computes the minimum image distance between two particles
 
@@ -122,7 +149,8 @@ class MCSimulation:
         rij2 = np.dot(rij, rij)
         return rij2
 
-    def get_particle_energy(self, coordinates, box_length, i_particle, cutoff2, comm):
+
+    def get_particle_energy(self, coordinates, box_length, i_particle, cutoff2):
 
         """
         This function computes the minimum image distance between two particles
@@ -142,17 +170,13 @@ class MCSimulation:
             the square of the shortest distance between the two particles and their images
         """
 
-        # Get information about the MPI communicator
-        my_rank = comm.Get_rank()
-        world_size = comm.Get_size()
-
         e_total = 0.0
 
         i_position = coordinates[i_particle]
 
         particle_count = len(coordinates)
 
-        for j_particle in range(my_rank, particle_count, world_size):
+        for j_particle in range(self.my_rank, particle_count, self.world_size):
 
             if i_particle != j_particle:
 
@@ -167,9 +191,10 @@ class MCSimulation:
         # Sum the energy across all ranks
         e_single = np.array( [e_total] )
         e_summed = np.zeros( 1 )
-        comm.Reduce( [e_single, MPI.DOUBLE], [e_summed, MPI.DOUBLE], op = MPI.SUM, root = 0 )
+        self.world_comm.Reduce( [e_single, MPI.DOUBLE], [e_summed, MPI.DOUBLE], op = MPI.SUM, root = 0 )
 
-        return e_summed
+        return e_summed[0]
+
 
     def calculate_total_pair_energy(self, coordinates, box_length, cutoff2):
         e_total = 0.0
@@ -186,6 +211,7 @@ class MCSimulation:
                     e_total += e_pair
 
         return e_total
+
 
     def accept_or_reject(self, delta_e, beta):
         """Accept or reject a move based on the energy difference and system \
@@ -221,6 +247,7 @@ class MCSimulation:
                 accept = False
 
         return accept
+
 
     def adjust_displacement(self, n_trials, n_accept, max_displacement):
         """Change the acceptance criteria to get the desired rate.
@@ -262,89 +289,59 @@ class MCSimulation:
         return max_displacement, n_trials, n_accept
 
 
-
-
-    def main(self):
-        start_simulation_time = MPI.Wtime()
-        total_energy_time = 0.0
-        total_decision_time = 0.0
-
-        world_comm = MPI.COMM_WORLD
-        world_size = world_comm.Get_size()
-        my_rank = world_comm.Get_rank()
-
-        #----------------
-        # Parameter setup
-        #----------------
-
-        reduced_temperature = 0.9
-        reduced_density = 0.9
-        n_steps = 100
-        freq = 10
-        num_particles = 100
-        simulation_cutoff = 3.0
-        max_displacement = 0.1
-        tune_displacement = True
-        plot = True
-        build_method = 'random'
-
-        box_length = np.cbrt(num_particles / reduced_density)
-        beta = 1.0 / reduced_temperature
-        simulation_cutoff2 = np.power(simulation_cutoff, 2)
-        n_trials = 0
-        n_accept = 0
-        energy_array = np.zeros(n_steps)
+    def run(self):
 
         #-----------------------
         # Monte Carlo simulation
         #-----------------------
 
-        if my_rank == 0:
-            coordinates = self.generate_initial_state(method=build_method, num_particles=num_particles, box_length=box_length)
+        if self.my_rank == 0:
+            coordinates = self.generate_initial_state(method=self.build_method, num_particles=self.num_particles, box_length=self.box_length)
         else:
-            coordinates = np.empty([num_particles, 3])
-        world_comm.Bcast( [coordinates, MPI.DOUBLE], root = 0 )
+            coordinates = np.empty([self.num_particles, 3])
+        self.world_comm.Bcast( [coordinates, MPI.DOUBLE], root = 0 )
 
-        total_pair_energy = self.calculate_total_pair_energy(coordinates, box_length, simulation_cutoff2)
-        tail_correction = self.calculate_tail_correction(box_length, simulation_cutoff, num_particles)
+        total_pair_energy = self.calculate_total_pair_energy(coordinates, self.box_length, self.simulation_cutoff2)
+        tail_correction = self.calculate_tail_correction(self.box_length, self.simulation_cutoff, self.num_particles)
 
         n_trials = 0
+        n_accept = 0
 
-        for i_step in range(n_steps):
+        for i_step in range(self.n_steps):
 
-            if my_rank == 0:
+            if self.my_rank == 0:
                 n_trials += 1
 
-                i_particle = np.random.randint(num_particles)
+                i_particle = np.random.randint(self.num_particles)
                 i_particle_buf = np.array( [i_particle], 'i' )
 
-                random_displacement = (2.0 * np.random.rand(3) - 1.0) * max_displacement
+                random_displacement = (2.0 * np.random.rand(3) - 1.0) * self.max_displacement
             else:
                 i_particle_buf = np.empty( 1, 'i' )
                 random_displacement = np.empty( 3 )
-            world_comm.Bcast( [i_particle_buf, MPI.INT], root = 0 )
+            self.world_comm.Bcast( [i_particle_buf, MPI.INT], root = 0 )
             i_particle = i_particle_buf[0]
-            world_comm.Bcast( [random_displacement, MPI.DOUBLE], root = 0 )
-            world_comm.Bcast( [coordinates, MPI.DOUBLE], root = 0 )
+            self.world_comm.Bcast( [random_displacement, MPI.DOUBLE], root = 0 )
+            self.world_comm.Bcast( [coordinates, MPI.DOUBLE], root = 0 )
 
             start_energy_time = MPI.Wtime()
-            current_energy = self.get_particle_energy(coordinates, box_length, i_particle, simulation_cutoff2, world_comm)
-            total_energy_time += MPI.Wtime() - start_energy_time
+            current_energy = self.get_particle_energy(coordinates, self.box_length, i_particle, self.simulation_cutoff2)
+            self.total_energy_time += MPI.Wtime() - start_energy_time
 
             proposed_coordinates = coordinates.copy()
             proposed_coordinates[i_particle] += random_displacement
-            proposed_coordinates -= box_length * np.round(proposed_coordinates / box_length)
+            proposed_coordinates -= self.box_length * np.round(proposed_coordinates / self.box_length)
 
             start_energy_time = MPI.Wtime()
-            proposed_energy = self.get_particle_energy(proposed_coordinates, box_length, i_particle, simulation_cutoff2, world_comm)
-            total_energy_time += MPI.Wtime() - start_energy_time
+            proposed_energy = self.get_particle_energy(proposed_coordinates, self.box_length, i_particle, self.simulation_cutoff2)
+            self.total_energy_time += MPI.Wtime() - start_energy_time
 
-            if my_rank == 0:
+            if self.my_rank == 0:
                 start_decision_time = MPI.Wtime()
 
                 delta_e = proposed_energy - current_energy
 
-                accept = self.accept_or_reject(delta_e, beta)
+                accept = self.accept_or_reject(delta_e, self.beta)
 
                 if accept:
 
@@ -352,26 +349,24 @@ class MCSimulation:
                     n_accept += 1
                     coordinates[i_particle] += random_displacement
 
-                total_energy = (total_pair_energy + tail_correction) / num_particles
+                total_energy = (total_pair_energy + tail_correction) / self.num_particles
 
-                energy_array[i_step] = total_energy
+                if np.mod(i_step + 1, self.freq) == 0:
 
-                if np.mod(i_step + 1, freq) == 0:
+                    print(total_energy)
 
-                    print(i_step + 1, energy_array[i_step])
+                    if self.tune_displacement:
+                        self.max_displacement, n_trials, n_accept = self.adjust_displacement(n_trials, n_accept, self.max_displacement)
 
-                    if tune_displacement:
-                        max_displacement, n_trials, n_accept = self.adjust_displacement(n_trials, n_accept, max_displacement)
+                self.total_decision_time += MPI.Wtime() - start_decision_time
 
-                total_decision_time += MPI.Wtime() - start_decision_time
-
-        if my_rank == 0:
-            print("Total simulation time: " + str( MPI.Wtime() - start_simulation_time ) )
-            print("    Energy time:       " + str( total_energy_time ) )
-            print("    Decision time:     " + str( total_decision_time ) )
+        if self.my_rank == 0:
+            print("Total simulation time: " + str( MPI.Wtime() - self.start_simulation_time ) )
+            print("    Energy time:       " + str( self.total_energy_time ) )
+            print("    Decision time:     " + str( self.total_decision_time ) )
 
 
 
 if __name__ == "__main__":
     simulation = MCSimulation()
-    simulation.main()
+    simulation.run()
