@@ -220,7 +220,7 @@ At the end of the `MCSimulation` initialization function, add the following code
 We now need to write code that will enable MDI_MC_Demo to receive and correctly respond to commands from the driver.
 Add the following function to the `MCSimulation` class:
 ```Python
-    def run_mdi(self, node_name):
+    def mdi_node(self, node_name):
 
         # Main MDI loop
         while not self.mdi_exit_flag:
@@ -241,15 +241,13 @@ Add the following function to the `MCSimulation` class:
 ```
 
 Finally, we will call this code immediately before the Monte Carlo simulation begins.
-In the `MCSimulation` `run` function, immediately before the beginning of the main Monte Carlo loop (which begins with `for i_step in range(n_steps):`) insert a call to the `run_mdi` function.
+At the very beginning of the `MCSimulation` `run` function, insert a call to the `mdi_node` function:
 This should look like:
 ```Python
-    n_trials = 0
-
-    if use_mdi:
-        command = self.run_mdi("@DEFAULT")
-
-    for i_step in range(n_steps):
+        if use_mdi:
+            command = self.mdi_node("@DEFAULT")
+            if command == "EXIT":
+                return
 ```
 
 That's everything we need for basic MDI functionality.
