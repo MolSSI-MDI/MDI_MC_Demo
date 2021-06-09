@@ -335,6 +335,7 @@ class MCSimulation:
 
         total_pair_energy = self.calculate_total_pair_energy(self.coordinates, self.box_length, self.reduced_simulation_cutoff2)
         tail_correction = self.calculate_tail_correction(self.box_length, self.reduced_simulation_cutoff, self.num_particles)
+        total_energy = (total_pair_energy + tail_correction) / self.num_particles
 
         n_trials = 0
         n_accept = 0
@@ -370,13 +371,12 @@ class MCSimulation:
 
             start_energy_time = MPI.Wtime()
             proposed_energy = self.get_particle_energy(proposed_coordinates, self.box_length, i_particle, self.reduced_simulation_cutoff2)
+            delta_e = proposed_energy - current_energy
             self.total_energy_time += MPI.Wtime() - start_energy_time
 
             # Accept or reject the step
             if self.my_rank == 0:
                 start_decision_time = MPI.Wtime()
-
-                delta_e = proposed_energy - current_energy
 
                 accept = self.accept_or_reject(delta_e, self.beta)
 
