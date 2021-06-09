@@ -328,6 +328,52 @@ The following code will correctly respond to the `<CELL_DISPL` command:
 If you rerun `mdimechanic report`, the output should indicate that all four of the above commands are now working.
 
 
+## Add additional nodes
+
+One of the strengths of MDI is that it provides drivers with control over the high-level program flow of MDI engines.
+For example, a driver might command an engine to begin a geometry optimization, and then add an extra term to the atomic forces during each timestep of the geometry optimization.
+In order for a driver to do this, the engine must be capable of responding to commands from the driver at multiple points over the course of the geometry optimization: specificaly, each time the forces are evaluated.
+In MDI parlance, a point in an engine's program flow where it is capable of listening for commands from a driver is called a "node".
+Engines are permitted to implement any number of nodes, each of which has a name that is defined by the engine - the MDI Standard defines a small number of names for nodes, but does not attempt to define a name for every possible node.
+All node names must begin with a `@` symbol, and the first node at which an engine listens for commands must be named `@DEFAULT`.
+We implemented support for the `@DEFAULT` node earlier, when we added a call to `self.mdi_node("@DEFAULT")`.
+
+Over the course of the rest of this tutorial, we are going to work towards enabling the `MDI_MC_Demo` to facilitate a use case in which an external driver adds an additional term to the energy of each test displacement.
+Furthermore, we want to implement this in a way that enables the external driver to be written in a way that is portable with respect to engine; in other words, the external driver should be capable of working with any MDI engine that supports Monte Carlo calculations, and shouldn't make any assumptions that are specific to `MDI_MC_Demo`.
+
+To this end, we need `MDI_MC_Demo` to implement a node called `@INIT_MC`, which is one of a small number of nodes that is defined by the MDI Standard.
+This node corresponds to the moment "upon initializing a new Monte Carlo simulation," and is important because it effectively allows a driver to command an engine to begin a Monte Carlo simulation.
+In a sense, this may seem redundant or unnecessary for `MDI_MC_Demo`; after all, the only thing `MDI_MC_Demo` can do is run Monte Carlo simulations, so why does the driver need to specifically command it to begine a Monte Carlo simulation?
+The reason we still need to implement an `@INIT_MC` node is because there are other engines that are capable of running Monte Carlo simulations, **and** molecular dynamics simulations, **and** geometry optimizations; in those cases, a driver needs to be able to specify to the engine whether it should begin a Monte Carlo simulations (by sending the `@INIT_MC` command), or a molecular dynamics simulation (by sending the `@INIT_MD` command), or a geometry optimization (by sending the `@INIT_OPTG` command).
+For the purpose of enabling drivers to be designed portably, the `MDI_MC_Demo` needs to implement an `@INIT_MC` node.
+
+Add the `@INIT_MC` node immediately after the `@DEFAULT` node, so that the first few lines of `run` are:
+```Python
+    def run(self):
+        if self.use_mdi:
+            # @DEFAULT node
+            self.mdi_node("@DEFAULT")
+            if self.command == "EXIT":
+                return
+
+            # @INIT_MC node
+            self.mdi_node("@INIT_MC")
+            if self.command == "EXIT":
+                return
+```
+
+We now need `MDI_MC_Demo` to be able to listen for commands everytime it recomputes the forces.
+Insert the following just before the comment that reads `Accept or reject the step`:
+```Python
+            if self.use_mdi:
+                # @ENERGY node
+                self.mdi_node("@ENERGY")
+                if self.command == "EXIT":
+                    return
+```
+
+
+
 ## Create a simple driver
 
 From the directory where `mdimechanic.yml` is located, create a subdirectory called `test_driver`, and within that directory, create a file called `test_driver.py`.
