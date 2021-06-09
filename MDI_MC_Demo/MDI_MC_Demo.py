@@ -69,6 +69,16 @@ class MCSimulation:
         self.beta = 1.0 / self.reduced_temperature
         self.reduced_simulation_cutoff2 = np.power(self.reduced_simulation_cutoff, 2)
 
+        #--------------------------
+        # Coordinate initialization
+        #--------------------------
+
+        if self.my_rank == 0:
+            self.coordinates = self.generate_initial_state(method=self.build_method, num_particles=self.num_particles, box_length=self.box_length)
+        else:
+            self.coordinates = np.empty([self.num_particles, 3])
+        self.world_comm.Bcast( [self.coordinates, MPI.DOUBLE], root = 0 )
+
 
     def generate_initial_state(self, method='random', file_name=None, num_particles=None, box_length=None):
         """
@@ -323,21 +333,15 @@ class MCSimulation:
 
     def run(self):
 
-        #-----------------------
-        # Monte Carlo simulation
-        #-----------------------
-
-        if self.my_rank == 0:
-            coordinates = self.generate_initial_state(method=self.build_method, num_particles=self.num_particles, box_length=self.box_length)
-        else:
-            coordinates = np.empty([self.num_particles, 3])
-        self.world_comm.Bcast( [coordinates, MPI.DOUBLE], root = 0 )
-
-        total_pair_energy = self.calculate_total_pair_energy(coordinates, self.box_length, self.reduced_simulation_cutoff2)
+        total_pair_energy = self.calculate_total_pair_energy(self.coordinates, self.box_length, self.reduced_simulation_cutoff2)
         tail_correction = self.calculate_tail_correction(self.box_length, self.reduced_simulation_cutoff, self.num_particles)
 
         n_trials = 0
         n_accept = 0
+
+        #----------------------
+        # Main Monte Carlo Loop
+        #----------------------
 
         for i_step in range(self.n_steps):
 
@@ -354,13 +358,13 @@ class MCSimulation:
             self.world_comm.Bcast( [i_particle_buf, MPI.INT], root = 0 )
             i_particle = i_particle_buf[0]
             self.world_comm.Bcast( [random_displacement, MPI.DOUBLE], root = 0 )
-            self.world_comm.Bcast( [coordinates, MPI.DOUBLE], root = 0 )
+            self.world_comm.Bcast( [self.coordinates, MPI.DOUBLE], root = 0 )
 
             start_energy_time = MPI.Wtime()
-            current_energy = self.get_particle_energy(coordinates, self.box_length, i_particle, self.reduced_simulation_cutoff2)
+            current_energy = self.get_particle_energy(self.coordinates, self.box_length, i_particle, self.reduced_simulation_cutoff2)
             self.total_energy_time += MPI.Wtime() - start_energy_time
 
-            proposed_coordinates = coordinates.copy()
+            proposed_coordinates = self.coordinates.copy()
             proposed_coordinates[i_particle] += random_displacement
             proposed_coordinates -= self.box_length * np.round(proposed_coordinates / self.box_length)
 
@@ -379,7 +383,7 @@ class MCSimulation:
 
                     total_pair_energy += delta_e
                     n_accept += 1
-                    coordinates[i_particle] += random_displacement
+                    self.coordinates[i_particle] += random_displacement
 
                 total_energy = (total_pair_energy + tail_correction) / self.num_particles
 
