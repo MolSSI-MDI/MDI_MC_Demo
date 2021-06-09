@@ -281,7 +281,7 @@ This command requires that the engine send the total number of atoms in its syst
 We will need to add functionality for `MDI_MC_Demo` to do this as part of the `if ... else` clause that is labeled with the comment `Respond to the received command`
 Add the following lines after the `command == "EXIT"` case:
 ```Python
-            elif command == "<NATOMS":
+            elif self.command == "<NATOMS":
                 mdi.MDI_Send(self.num_particles, 1, mdi.MDI_INT, self.mdi_comm)
 ```
 The full `if ... else` clause should look like:
@@ -289,7 +289,7 @@ The full `if ... else` clause should look like:
             # Respond to the received command
             if self.command == "EXIT":
                 self.mdi_exit_flag = True
-            elif command == "<NATOMS":
+            elif self.command == "<NATOMS":
                 mdi.MDI_Send(self.num_particles, 1, mdi.MDI_INT, self.mdi_comm)
             else:
                 # The received command is not recognized by this engine, so exit
@@ -299,18 +299,18 @@ The full `if ... else` clause should look like:
 Supporting the `<COORDS` command follows a similar process, except that we must also convert `MDI_MC_Demo`'s internal coordinates from Lennard-Jones reduced units to atomic units, which are used by MDI.
 The following code will accomplish this:
 ```Python
-            elif command == "<COORDS":
+            elif self.command == "<COORDS":
                 if coordinates is None:
                     raise Exception('The <COORDS command was received, but the coordinates are not available')
-                conversion_factor = self.sigma * MDI_Conversion_factor("meter","atomic_unit_of_length")
+                conversion_factor = self.sigma * mdi.MDI_Conversion_factor("meter","atomic_unit_of_length")
                 mdi_coords = conversion_factor * coordinates
                 mdi.MDI_Send(mdi_coords, 3 * self.num_particles, mdi.MDI_DOUBLE, self.mdi_comm)
 ```
 
 For the `<CELL` command, the engine must send its full set of cell vectors to the driver.
 ```Python
-            elif command == "<CELL":
-                conversion_factor = self.sigma * MDI_Conversion_factor("meter","atomic_unit_of_length")
+            elif self.command == "<CELL":
+                conversion_factor = self.sigma * mdi.MDI_Conversion_factor("meter","atomic_unit_of_length")
                 mdi_box_length = conversion_factor * self.box_length
                 cell = [ mdi_box_length, 0.0, 0.0, 0.0, mdi_box_length, 0.0, 0.0, 0.0, mdi_box_length ]
                 mdi.MDI_Send(cell, 9, mdi.MDI_DOUBLE, self.mdi_comm)
@@ -320,8 +320,8 @@ The `<CELL_DISPL` command requires that the engine send the driver a vector that
 For `MDI_MC_Demo`, the origin of the cell is at `[-0.5*self.box_length, -0.5*self.boxlength, -0.5*self.box_length]`.
 The following code will correctly respond to the `<CELL_DISPL` command:
 ```Python
-            elif command == "<CELL_DISPL":
-                conversion_factor = self.sigma * MDI_Conversion_factor("meter","atomic_unit_of_length")
+            elif self.command == "<CELL_DISPL":
+                conversion_factor = self.sigma * mdi.MDI_Conversion_factor("meter","atomic_unit_of_length")
                 mdi_box_length = conversion_factor * self.box_length
                 cell_displ = [ -0.5*mdi_box_length, -0.5*mdi_box_length, -0.5*mdi_box_length ]
                 mdi.MDI_Send(cell_displ, 3, mdi.MDI_DOUBLE, self.mdi_comm)
@@ -335,10 +335,10 @@ If you rerun `mdimechanic report`, the output should indicate that all four of t
 We now need to add support for the `<ENERGY` and `>ENERGY` commands.
 Adding the following lines to the `if ... else` in `mdi_node` is sufficient to support the `<ENERGY` command:
 ```Python
-            elif command == "<ENERGY":
+            elif self.command == "<ENERGY":
                 if energy is None:
                     raise Exception('The <ENERGY command was received, but the energy is not available')
-                conversion_factor = self.epsilon * MDI_Conversion_factor("joule","atomic_unit_of_energy")
+                conversion_factor = self.epsilon * mdi.MDI_Conversion_factor("joule","atomic_unit_of_energy")
                 mdi_energy = conversion_factor * energy
                 mdi.MDI_Send(mdi_energy, 1, mdi.MDI_DOUBLE, self.mdi_comm)
 ```
@@ -346,10 +346,10 @@ Adding the following lines to the `if ... else` in `mdi_node` is sufficient to s
 Supporting `>ENERGY` is a little more involved.
 First, we must receive the energy from the driver and broadcast it to all MPI ranks (only `rank 0` receives any data from the driver):
 ```Python
-            elif command == ">ENERGY":
+            elif self.command == ">ENERGY":
                 # Receive the energy from the driver
                 mdi_energy = mdi.MDI_Recv(1, mdi.MDI_DOUBLE, self.mdi_comm)
-                conversion_factor = 1.0 / (self.epsilon * MDI_Conversion_factor("joule","atomic_unit_of_energy"))
+                conversion_factor = 1.0 / (self.epsilon * mdi.MDI_Conversion_factor("joule","atomic_unit_of_energy"))
                 mdi_energy *= conversion_factor
                 
                 # Broadcast the energy to all procs
