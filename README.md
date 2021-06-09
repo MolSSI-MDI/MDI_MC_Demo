@@ -225,19 +225,17 @@ Add the following function to the `MCSimulation` class:
         # Main MDI loop
         while not self.mdi_exit_flag:
             # Receive a command from the driver
-            command = mdi.MDI_Recv_command(self.mdi_comm)
+            self.command = mdi.MDI_Recv_command(self.mdi_comm)
 
             # Broadcast the command to all ranks
-            command = world_comm.bcast(command, root=0)
+            self.command = world_comm.bcast(self.command, root=0)
 
             # Respond to the received command
-            if command == "EXIT":
+            if self.command == "EXIT":
                 self.mdi_exit_flag = True
             else:
                 # The received command is not recognized by this engine, so exit
-                raise Exception('MDI Engine received unrecognized command: ' + str(command))
-
-        return command
+                raise Exception('MDI Engine received unrecognized command: ' + str(self.command))
 ```
 
 Finally, we will call this code immediately before the Monte Carlo simulation begins.
@@ -245,8 +243,8 @@ At the very beginning of the `MCSimulation` `run` function, insert a call to the
 This should look like:
 ```Python
         if use_mdi:
-            command = self.mdi_node("@DEFAULT")
-            if command == "EXIT":
+            self.mdi_node("@DEFAULT")
+            if self.command == "EXIT":
                 return
 ```
 
@@ -275,6 +273,60 @@ Success: Able to verify that the engine was built
 Success: Engine passed minimal MDI functionality test.
 Success: Engine errors out upon receiving an unsupported command.
 ```
+
+## Add support for the `<NATOMS`, `<COORDS`, `<CELL`, and `<CELL_DISPL` commands
+
+We will now edit the `mdi_node` function to add support for the `<NATOMS` MDI command.
+This command requires that the engine send the total number of atoms in its system to the driver.
+We will need to add functionality for `MDI_MC_Demo` to do this as part of the `if ... else` clause that is labeled with the comment `Respond to the received command`
+Add the following lines after the `command == "EXIT"` case:
+```Python
+            elif command == "<NATOMS":
+                mdi.MDI_Send(self.num_particles, 1, MDI_INT, self.mdi_comm)
+```
+The full `if ... else` clause should look like:
+```Python
+            # Respond to the received command
+            if self.command == "EXIT":
+                self.mdi_exit_flag = True
+            elif command == "<NATOMS":
+                mdi.MDI_Send(self.num_particles, 1, MDI_INT, self.mdi_comm)
+            else:
+                # The received command is not recognized by this engine, so exit
+                raise Exception('MDI Engine received unrecognized command: ' + str(self.command))
+```
+
+Supporting the `<COORDS` command follows a similar process, except that we must also convert `MDI_MC_Demo`'s internal coordinates from Lennard-Jones reduced units to atomic units, which are used by MDI.
+The following code will accomplish this:
+```Python
+            elif command == "<COORDS":
+                conversion_factor = self.sigma * MDI_Conversion_factor("meter","atomic_unit_of_length")
+                mdi_coords = conversion_factor * self.coordinates
+                mdi.MDI_Send(mdi_coords, 3 * self.num_particles, MDI_DOUBLE, self.mdi_comm)
+```
+
+For the `<CELL` command, the engine must send its full set of cell vectors to the driver.
+```Python
+            elif command == "<CELL":
+                conversion_factor = self.sigma * MDI_Conversion_factor("meter","atomic_unit_of_length")
+                mdi_box_length = conversion_factor * self.box_length
+                cell = [ mdi_box_length, 0.0, 0.0, 0.0, mdi_box_length, 0.0, 0.0, 0.0, mdi_box_length ]
+                mdi.MDI_Send(cell, 9, MDI_DOUBLE, self.mdi_comm)
+```
+
+The `<CELL_DISPL` command requires that the engine send the driver a vector that corresponds to the displacement of the periodic cell's origin.
+For `MDI_MC_Demo`, the origin of the cell is at `[-0.5*self.box_length, -0.5*self.boxlength, -0.5*self.box_length]`.
+The following code will correctly respond to the `<CELL_DISPL` command:
+```Python
+            elif command == "<CELL_DISPL":
+                conversion_factor = self.sigma * MDI_Conversion_factor("meter","atomic_unit_of_length")
+                mdi_box_length = conversion_factor * self.box_length
+                cell_displ = [ -0.5*mdi_box_length, -0.5*mdi_box_length, -0.5*mdi_box_length ]
+                mdi.MDI_Send(cell_displ, 3, MDI_DOUBLE, self.mdi_comm)
+```
+
+If you rerun `mdimechanic report`, the output should indicate that all four of the above commands are now working.
+
 
 
 ### Copyright
