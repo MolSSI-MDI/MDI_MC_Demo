@@ -220,7 +220,7 @@ At the end of the `MCSimulation` initialization function, add the following code
 We now need to write code that will enable MDI_MC_Demo to receive and correctly respond to commands from the driver.
 Add the following function to the `MCSimulation` class:
 ```Python
-    def mdi_node(self, node_name):
+    def mdi_node(self, node_name, coordinates=None, energy=None):
 
         # Main MDI loop
         while not self.mdi_exit_flag:
@@ -243,7 +243,7 @@ At the very beginning of the `MCSimulation` `run` function, insert a call to the
 This should look like:
 ```Python
         if use_mdi:
-            self.mdi_node("@DEFAULT")
+            self.mdi_node("@DEFAULT", coordinates=self.coordinates)
             if self.command == "EXIT":
                 return
 ```
@@ -300,8 +300,10 @@ Supporting the `<COORDS` command follows a similar process, except that we must 
 The following code will accomplish this:
 ```Python
             elif command == "<COORDS":
+                if coordinates is None:
+                    raise Exception('The <COORDS command was received, but the coordinates are not available')
                 conversion_factor = self.sigma * MDI_Conversion_factor("meter","atomic_unit_of_length")
-                mdi_coords = conversion_factor * self.coordinates
+                mdi_coords = conversion_factor * coordinates
                 mdi.MDI_Send(mdi_coords, 3 * self.num_particles, mdi.MDI_DOUBLE, self.mdi_comm)
 ```
 
@@ -328,6 +330,43 @@ The following code will correctly respond to the `<CELL_DISPL` command:
 If you rerun `mdimechanic report`, the output should indicate that all four of the above commands are now working.
 
 
+## Add support for the `<ENERGY` and `>ENERGY` commands
+
+We now need to add support for the `<ENERGY` and `>ENERGY` commands.
+Adding the following lines to the `if ... else` in `mdi_node` is sufficient:
+```Python
+            elif command == "<ENERGY":
+                if energy is None:
+                    raise Exception('The <ENERGY command was received, but the energy is not available')
+                conversion_factor = self.epsilon * MDI_Conversion_factor("joule","atomic_unit_of_energy")
+                mdi_energy = conversion_factor * energy
+                mdi.MDI_Send(mdi_energy, 1, mdi.MDI_DOUBLE, self.mdi_comm)
+```
+
+Supporting `>ENERGY` is a little more involved.
+First, we must receive the energy from the driver and broadcast it to all MPI ranks (only `rank 0` receives any data from the driver):
+```Python
+            elif command == ">ENERGY":
+                # Receive the energy from the driver
+                mdi_energy = mdi.MDI_Recv(1, mdi.MDI_DOUBLE, self.mdi_comm)
+                conversion_factor = 1.0 / (self.epsilon * MDI_Conversion_factor("joule","atomic_unit_of_energy"))
+                mdi_energy *= conversion_factor
+                
+                # Broadcast the energy to all procs
+                bcast_energy = np.array( [mdi_energy] )
+                self.world_comm.Bcast( [bcast_energy, MPI.DOUBLE], root = 0 )
+                self.energy_from_driver = bcast_energy[0]
+```
+The energy from the driver is stored in `self.energy_from_driver`.
+Set the value of this variable to `None` at the beginning of the `mdi_node` function:
+```Python
+    def mdi_node(self, node_name, coordinates=None, energy=None):
+        self.energy_from_driver = None
+```
+Note that the `>ENERGY` command doesn't affect the calculation in any way - the `self.energy_from_driver` variable is not currently used anywhere else in the code.
+We will address this issue in the next section.
+
+
 ## Add additional nodes
 
 One of the strengths of MDI is that it provides drivers with control over the high-level program flow of MDI engines.
@@ -352,12 +391,12 @@ Add the `@INIT_MC` node immediately after the `@DEFAULT` node, so that the first
     def run(self):
         if self.use_mdi:
             # @DEFAULT node
-            self.mdi_node("@DEFAULT")
+            self.mdi_node("@DEFAULT", coordinates=self.coordinates)
             if self.command == "EXIT":
                 return
 
             # @INIT_MC node
-            self.mdi_node("@INIT_MC")
+            self.mdi_node("@INIT_MC", coordinates=self.coordinates)
             if self.command == "EXIT":
                 return
 ```
@@ -367,10 +406,14 @@ Insert the following just before the comment that reads `Accept or reject the st
 ```Python
             if self.use_mdi:
                 # @ENERGY node
-                self.mdi_node("@ENERGY")
+                self.mdi_node("@ENERGY",
+                              coordinates=proposed_coordinates,
+                              energy=total_energy+delta_e)
                 if self.command == "EXIT":
                     return
 ```
+
+
 
 
 
