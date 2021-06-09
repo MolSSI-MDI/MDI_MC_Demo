@@ -119,12 +119,12 @@ class MCSimulation:
         """
 
 
-        if method is 'random':
+        if method == 'random':
 
             np.random.seed(seed=1)
             coordinates = (0.5 - np.random.rand(num_particles, 3)) * box_length
 
-        elif method is 'file':
+        elif method == 'file':
 
             coordinates = np.loadtxt(file_name, skiprows=2, usecols=(1,2,3))
 
