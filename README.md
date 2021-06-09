@@ -228,7 +228,7 @@ Add the following function to the `MCSimulation` class:
             self.command = mdi.MDI_Recv_command(self.mdi_comm)
 
             # Broadcast the command to all ranks
-            self.command = world_comm.bcast(self.command, root=0)
+            self.command = self.world_comm.bcast(self.command, root=0)
 
             # Respond to the received command
             if self.command == "EXIT":
@@ -282,7 +282,7 @@ We will need to add functionality for `MDI_MC_Demo` to do this as part of the `i
 Add the following lines after the `command == "EXIT"` case:
 ```Python
             elif command == "<NATOMS":
-                mdi.MDI_Send(self.num_particles, 1, MDI_INT, self.mdi_comm)
+                mdi.MDI_Send(self.num_particles, 1, mdi.MDI_INT, self.mdi_comm)
 ```
 The full `if ... else` clause should look like:
 ```Python
@@ -290,7 +290,7 @@ The full `if ... else` clause should look like:
             if self.command == "EXIT":
                 self.mdi_exit_flag = True
             elif command == "<NATOMS":
-                mdi.MDI_Send(self.num_particles, 1, MDI_INT, self.mdi_comm)
+                mdi.MDI_Send(self.num_particles, 1, mdi.MDI_INT, self.mdi_comm)
             else:
                 # The received command is not recognized by this engine, so exit
                 raise Exception('MDI Engine received unrecognized command: ' + str(self.command))
@@ -302,7 +302,7 @@ The following code will accomplish this:
             elif command == "<COORDS":
                 conversion_factor = self.sigma * MDI_Conversion_factor("meter","atomic_unit_of_length")
                 mdi_coords = conversion_factor * self.coordinates
-                mdi.MDI_Send(mdi_coords, 3 * self.num_particles, MDI_DOUBLE, self.mdi_comm)
+                mdi.MDI_Send(mdi_coords, 3 * self.num_particles, mdi.MDI_DOUBLE, self.mdi_comm)
 ```
 
 For the `<CELL` command, the engine must send its full set of cell vectors to the driver.
@@ -311,7 +311,7 @@ For the `<CELL` command, the engine must send its full set of cell vectors to th
                 conversion_factor = self.sigma * MDI_Conversion_factor("meter","atomic_unit_of_length")
                 mdi_box_length = conversion_factor * self.box_length
                 cell = [ mdi_box_length, 0.0, 0.0, 0.0, mdi_box_length, 0.0, 0.0, 0.0, mdi_box_length ]
-                mdi.MDI_Send(cell, 9, MDI_DOUBLE, self.mdi_comm)
+                mdi.MDI_Send(cell, 9, mdi.MDI_DOUBLE, self.mdi_comm)
 ```
 
 The `<CELL_DISPL` command requires that the engine send the driver a vector that corresponds to the displacement of the periodic cell's origin.
@@ -322,11 +322,65 @@ The following code will correctly respond to the `<CELL_DISPL` command:
                 conversion_factor = self.sigma * MDI_Conversion_factor("meter","atomic_unit_of_length")
                 mdi_box_length = conversion_factor * self.box_length
                 cell_displ = [ -0.5*mdi_box_length, -0.5*mdi_box_length, -0.5*mdi_box_length ]
-                mdi.MDI_Send(cell_displ, 3, MDI_DOUBLE, self.mdi_comm)
+                mdi.MDI_Send(cell_displ, 3, mdi.MDI_DOUBLE, self.mdi_comm)
 ```
 
 If you rerun `mdimechanic report`, the output should indicate that all four of the above commands are now working.
 
+
+## Create a simple driver
+
+From the directory where `mdimechanic.yml` is located, create a subdirectory called `test_driver`, and within that directory, create a file called `test_driver.py`.
+
+Add the following to `test_driver.py`:
+
+```Python
+import mdi
+import sys
+
+# Receive the -mdi option
+mdi_options = None
+use_mdi = False
+for iarg in range( len(sys.argv) ):
+    if sys.argv[iarg] == "-mdi" or sys.argv[iarg] == "--mdi":
+        if len(sys.argv) > iarg + 1:
+            mdi_options = sys.argv[iarg+1]
+            use_mdi = True
+        else:
+            raise Exception('Argument to -mdi option was not provided')
+if not use_mdi:
+    raise Exception('-mdi option was not provided')
+
+# Initialize MDI
+mdi.MDI_Init(mdi_options)
+
+# Establish a connection with the engine
+mdi_comm = mdi.MDI_Accept_communicator()
+
+# Get the name of the engine
+mdi.MDI_Send_command("<NAME", mdi_comm)
+engine_name = mdi.MDI_Recv(mdi.MDI_NAME_LENGTH, mdi.MDI_CHAR, mdi_comm)
+print("Engine name: " + str(engine_name))
+
+# Tell the engine to exit
+mdi.MDI_Send_command("EXIT", mdi_comm)
+```
+
+Add the following to the end of `mdimechanic.yml`:
+
+```
+test_drivers:
+  test_driver:
+    script:
+      - cd test_driver
+      - python test_driver.py -mdi "-role DRIVER -name driver -method TCP -port 8021"
+```
+
+You can now use MDI Mechanic to run a calculation using the test driver we just created and the `MDI_MC_Demo` engine.
+Execute the following command from the directory where `mdimechanic.yml` is located:
+```
+mdimechanic rundriver --name test_driver
+```
 
 
 ### Copyright
