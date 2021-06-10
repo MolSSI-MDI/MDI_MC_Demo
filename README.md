@@ -474,7 +474,16 @@ Then initialize `self.target_node` to `None` at the end of the `MCSimulation` in
             self.target_node = None
 ```
 
+One final note before we complete work on the driver: when an engine like `MDI_MC_Demo` is controlled by a driver, the driver code should have control over decisions like the number of iterations to run, and it should be able to decide this dynamically.
+One quick-and-dirty way to enable this with our driver is to simply set `self.n_steps` to an arbitrarily large value when running with MDI, which means the engine can continue iterating until it receives an `EXIT` command.
+Add the following to the end of the `MCSimulation` initialization function:
+```Python
+        if self.use_mdi:
+            self.n_steps = 1000000000
+```
 
+We are now finished implementing MDI engine capabilities into the `MDI_MC_Demo` engine.
+In the next section, we will try controlling `MDI_MC_Demo` with a simple driver.
 
 
 ## Create a simple driver
