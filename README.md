@@ -274,7 +274,17 @@ Success: Engine passed minimal MDI functionality test.
 Success: Engine errors out upon receiving an unsupported command.
 ```
 
-You may examine the completed report, which is located in 
+You may examine the completed report, which is located in a new `README.md` file, using `grip`.
+If you execute `grip` in the directory where `mdimechanic.yml` and the new `README.md` file are located, you should see output similar to the following:
+```
+ * Serving Flask app "grip.app" (lazy loading)
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: off
+ * Running on http://localhost:6419/ (Press CTRL+C to quit)
+```
+Open the development server (located at `http://localhost:6419/` in the above example) in a web browser, and you will be able to see the report.
 
 ## Add support for the `<NATOMS`, `<COORDS`, `<CELL`, and `<CELL_DISPL` commands
 
