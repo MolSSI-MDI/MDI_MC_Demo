@@ -409,9 +409,9 @@ Insert the following code just before the comment that reads `Main Monte Carlo l
                 # @ENERGY node
                 self.mdi_node("@ENERGY",
                               coordinates = self.coordinates,
-                              energy = total_energy)
+                              energy = total_energy * self.num_particles)
                 if self.energy_from_driver:
-                    total_energy = self.energy_from_driver
+                    total_energy = self.energy_from_driver / self.num_particles
                 if self.command == "EXIT":
                     return
 ```
@@ -421,10 +421,10 @@ Insert the following just before the comment that reads `Accept or reject the st
             if self.use_mdi:
                 # @ENERGY node
                 self.mdi_node("@ENERGY",
-                              coordinates = proposed_coordinates,
-                              energy = total_energy + delta_e)
+                              coordinates=proposed_coordinates,
+                              energy=total_pair_energy + tail_correction + delta_e)
                 if self.energy_from_driver:
-                    delta_e = self.energy_from_driver - total_energy
+                    delta_e = self.energy_from_driver -	total_pair_energy - tail_correction
                 if self.command == "EXIT":
                     return
 ```
@@ -451,7 +451,7 @@ The `@INIT_MC` and `@ENERGY` commands tell the engine to proceed to those partic
 The `@` is only valid if the driver has previously commanded the engine to initialize a simulation (*i.e.*, by sending an `@INIT_MD`, `@INIT_MC`, or `@INIT_OPTG` command), and commands the engine to proceed to the next node, regardless of the name of the node.
 The `<@` command requests that the engine send the name of the current node.
 
-In order to ensure that the code proceeds to the correct nodes in response to one of the `@INIT_MC`, `@ENERGY`, or `@` commands from the driver, insert the following at the very beginning of the `mdi_node` function:
+In order to ensure that the code proceeds to the correct nodes in response to one of the `@INIT_MC`, `@ENERGY`, or `@` commands from the driver, insert the following near the beginning of the `mdi_node` function, just after the line that reads `self.energy_from_driver = None`:
 ```Python
         if self.target_node is not None:
             if self.target_node == node_name or self.target_node == "@":
@@ -462,7 +462,7 @@ In order to ensure that the code proceeds to the correct nodes in response to on
                 return
 ```
 
-Then initialize `self.target_node` to `None` in the `MCSimulation` initialization function:
+Then initialize `self.target_node` to `None` at the end of the `MCSimulation` initialization function:
 ```Python
             # Initialize the MDI target node
             self.target_node = None
