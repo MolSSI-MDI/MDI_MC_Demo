@@ -414,8 +414,6 @@ Insert the following code just before the comment that reads `Main Monte Carlo l
             self.mdi_node("@ENERGY",
                           coordinates = self.coordinates,
                           energy = total_pair_energy + tail_correction)
-            total_pair_energy += self.delta_energy_from_driver
-            total_energy = (total_pair_energy + tail_correction) / self.num_particles
 
             if self.command == "EXIT":
                 return
