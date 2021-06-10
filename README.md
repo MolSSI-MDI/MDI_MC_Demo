@@ -347,6 +347,9 @@ Supporting `>ENERGY` is a little more involved.
 First, we must receive the energy from the driver and broadcast it to all MPI ranks (only `rank 0` receives any data from the driver):
 ```Python
             elif self.command == ">ENERGY":
+                if energy is None:
+                    raise Exception('The <ENERGY command was received, but the energy is not available')
+
                 # Receive the energy from the driver
                 mdi_energy = mdi.MDI_Recv(1, mdi.MDI_DOUBLE, self.mdi_comm)
                 conversion_factor = 1.0 / (self.epsilon * mdi.MDI_Conversion_factor("joule","atomic_unit_of_energy"))
@@ -355,15 +358,15 @@ First, we must receive the energy from the driver and broadcast it to all MPI ra
                 # Broadcast the energy to all procs
                 bcast_energy = np.array( [mdi_energy] )
                 self.world_comm.Bcast( [bcast_energy, MPI.DOUBLE], root = 0 )
-                self.energy_from_driver = bcast_energy[0]
+                self.delta_energy_from_driver = bcast_energy[0] - energy
 ```
-The energy from the driver is stored in `self.energy_from_driver`.
-Set the value of this variable to `None` at the beginning of the `mdi_node` function:
+The energy from the driver is stored in `self.delta_energy_from_driver`.
+Zero the value of this variable at the beginning of the `mdi_node` function:
 ```Python
     def mdi_node(self, node_name, coordinates=None, energy=None):
-        self.energy_from_driver = None
+        self.delta_energy_from_driver = 0.0
 ```
-Note that the `>ENERGY` command doesn't affect the calculation in any way - the `self.energy_from_driver` variable is not currently used anywhere else in the code.
+Note that the `>ENERGY` command doesn't affect the calculation in any way - the `self.delta_energy_from_driver` variable is not currently used anywhere else in the code.
 We will address this issue in the next section.
 
 
@@ -405,26 +408,31 @@ We now need `MDI_MC_Demo` to be able to listen for commands everytime it recompu
 The first time the energy is calcualted is just before the Monte Carlo iterate loop begins.
 Insert the following code just before the comment that reads `Main Monte Carlo loop`:
 ```Python
-            if self.use_mdi:
-                # @ENERGY node
-                self.mdi_node("@ENERGY",
-                              coordinates = self.coordinates,
-                              energy = total_energy * self.num_particles)
-                if self.energy_from_driver:
-                    total_energy = self.energy_from_driver / self.num_particles
-                if self.command == "EXIT":
-                    return
+        if self.use_mdi:
+
+            # @ENERGY node
+            self.mdi_node("@ENERGY",
+                          coordinates = self.coordinates,
+                          energy = total_pair_energy + tail_correction)
+            total_pair_energy += self.delta_energy_from_driver
+            total_energy = (total_pair_energy + tail_correction) / self.num_particles
+
+            if self.command == "EXIT":
+                return
 ```
 The energy is then recomputed during every iteration of the Monte Carlo loop.
 Insert the following just before the comment that reads `Accept or reject the step`:
 ```Python
             if self.use_mdi:
-                # @ENERGY node
+
+                # @ENERGY node                                                                                                    
+                previous_driver_delta = self.delta_energy_from_driver
                 self.mdi_node("@ENERGY",
                               coordinates=proposed_coordinates,
                               energy=total_pair_energy + tail_correction + delta_e)
-                if self.energy_from_driver:
-                    delta_e = self.energy_from_driver -	total_pair_energy - tail_correction
+                new_driver_delta = self.delta_energy_from_driver
+                delta_e += new_driver_delta - previous_driver_delta
+
                 if self.command == "EXIT":
                     return
 ```
