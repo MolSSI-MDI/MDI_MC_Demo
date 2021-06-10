@@ -242,7 +242,7 @@ Finally, we will call this code immediately before the Monte Carlo simulation be
 At the very beginning of the `MCSimulation` `run` function, insert a call to the `mdi_node` function:
 This should look like:
 ```Python
-        if use_mdi:
+        if self.use_mdi:
             self.mdi_node("@DEFAULT", coordinates=self.coordinates)
             if self.command == "EXIT":
                 return
@@ -259,7 +259,7 @@ MDI Mechanic sets the argument to the `-mdi` option to an environment variable c
 Provide MDI Mechanic with an MDI-enabled launch script by modifying the `engine_tests` field in `mdimechanic.yml` to the following:
 ```
 engine_tests:
-  node_search_distance:	1
+  node_search_distance: 1
 
   tested_commands:
     - '<CELL'
