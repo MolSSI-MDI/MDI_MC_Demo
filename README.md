@@ -488,7 +488,7 @@ Add the following to the end of the `MCSimulation` initialization function:
 With 
 
 ```Python
-	# Register MDI nodes and commands                                                                                         
+	# Register MDI nodes and commands
         if self.use_mdi:
             mdi.MDI_Register_node("@DEFAULT")
             mdi.MDI_Register_command("@DEFAULT", "<CELL")
