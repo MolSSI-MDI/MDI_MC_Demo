@@ -423,7 +423,7 @@ Insert the following just before the comment that reads `Accept or reject the st
 ```Python
             if self.use_mdi:
 
-                # @ENERGY node                                                                                                    
+                # @ENERGY node
                 previous_driver_delta = self.delta_energy_from_driver
                 self.mdi_node("@ENERGY",
                               coordinates=proposed_coordinates,
@@ -474,13 +474,52 @@ Then initialize `self.target_node` to `None` at the end of the `MCSimulation` in
             self.target_node = None
 ```
 
-One final note before we complete work on the driver: when an engine like `MDI_MC_Demo` is controlled by a driver, the driver code should have control over decisions like the number of iterations to run, and it should be able to decide this dynamically.
+When an engine like `MDI_MC_Demo` is controlled by a driver, the driver code should have control over decisions like the number of iterations to run, and it should be able to decide this dynamically.
 One quick-and-dirty way to enable this with our driver is to simply set `self.n_steps` to an arbitrarily large value when running with MDI, which means the engine can continue iterating until it receives an `EXIT` command.
 Add the following to the end of the `MCSimulation` initialization function:
 ```Python
         if self.use_mdi:
             self.n_steps = 1000000000
 ```
+
+
+## Register nodes and commands with the driver
+
+With 
+
+```Python
+	# Register MDI nodes and commands                                                                                         
+        if self.use_mdi:
+            mdi.MDI_Register_node("@DEFAULT")
+            mdi.MDI_Register_command("@DEFAULT", "<CELL")
+            mdi.MDI_Register_command("@DEFAULT", "<CELL_DISPL")
+            mdi.MDI_Register_command("@DEFAULT", "<COORDS")
+            mdi.MDI_Register_command("@DEFAULT", "@INIT_MC")
+            mdi.MDI_Register_command("@DEFAULT", "EXIT")
+            mdi.MDI_Register_command("@DEFAULT", "<@")
+
+            mdi.MDI_Register_node("@INIT_MC")
+            mdi.MDI_Register_command("@INIT_MC", "<CELL")
+            mdi.MDI_Register_command("@INIT_MC", "<CELL_DISPL")
+            mdi.MDI_Register_command("@INIT_MC", "<COORDS")
+            mdi.MDI_Register_command("@INIT_MC", "@ENERGY")
+            mdi.MDI_Register_command("@INIT_MC", "EXIT")
+            mdi.MDI_Register_command("@INIT_MC", "@")
+            mdi.MDI_Register_command("@INIT_MC", "<@")
+
+            mdi.MDI_Register_node("@ENERGY")
+            mdi.MDI_Register_callback("@ENERGY", ">ENERGY")
+            mdi.MDI_Register_command("@ENERGY", "<CELL")
+            mdi.MDI_Register_command("@ENERGY", "<CELL_DISPL")
+            mdi.MDI_Register_command("@ENERGY", "<COORDS")
+            mdi.MDI_Register_command("@ENERGY", "<ENERGY")
+            mdi.MDI_Register_command("@ENERGY", ">ENERGY")
+            mdi.MDI_Register_command("@ENERGY", "@ENERGY")
+            mdi.MDI_Register_command("@ENERGY", "EXIT")
+            mdi.MDI_Register_command("@ENERGY", "@")
+            mdi.MDI_Register_command("@ENERGY", "<@")
+```
+
 
 We are now finished implementing MDI engine capabilities into the `MDI_MC_Demo` engine.
 In the next section, we will try controlling `MDI_MC_Demo` with a simple driver.
@@ -495,6 +534,7 @@ Add the following to `test_driver.py`:
 ```Python
 import mdi
 import sys
+from mpi4py import MPI
 
 # Receive the -mdi option                                                                                                                                     
 mdi_options = None
@@ -524,30 +564,23 @@ print("Engine name: " + str(engine_name))
 mdi.MDI_Send_command("<NATOMS", mdi_comm)
 natoms = mdi.MDI_Recv(1, mdi.MDI_INT, mdi_comm)
 
-# Get the cell vectors                                                                                                                                        
-mdi.MDI_Send_command("<CELL", mdi_comm)
-cell = mdi.MDI_Recv(9, mdi.MDI_DOUBLE, mdi_comm)
-
-# Get the cell displacement                                                                                                                                   
-mdi.MDI_Send_command("<CELL_DISPL", mdi_comm)
-cell_displ = mdi.MDI_Recv(3, mdi.MDI_DOUBLE, mdi_comm)
-
 # Initialize an MC simulation                                                                                                                                 
 mdi.MDI_Send_command("@INIT_MC", mdi_comm)
 
-for i in range(200):
+start_simulation_time = MPI.Wtime()
+
+nsteps = 1000
+for i in range(nsteps):
     # Proceed to the next node                                                                                                                                
     mdi.MDI_Send_command("@", mdi_comm)
 
     # Request the name of the node                                                                                                                            
     mdi.MDI_Send_command("<@", mdi_comm)
     node_name = mdi.MDI_Recv(mdi.MDI_NAME_LENGTH, mdi.MDI_CHAR, mdi_comm)
-    print("NODE: " + str(node_name))
 
     # Get the energy                                                                                                                                          
     mdi.MDI_Send_command("<ENERGY", mdi_comm)
     energy = mdi.MDI_Recv(1, mdi.MDI_DOUBLE, mdi_comm)
-    print("energy: " + str(energy))
 
     # Get the coordinates                                                                                                                                     
     mdi.MDI_Send_command("<COORDS", mdi_comm)
@@ -559,10 +592,10 @@ for i in range(200):
         if coords[3*iatom + 0] > 0.0:
             count += 1
     fraction = float(count) / float(natoms)
-    print("Fraction: " + str(fraction))
+    print("Energy, Fraction: " + str(energy) + " " + str(fraction))
 
     # Add a new term to the energy                                                                                                                            
-    energy += 10.0 * count
+    energy += 100.0 * count
 
     # Send the new energy                                                                                                                                     
     mdi.MDI_Send_command(">ENERGY", mdi_comm)
@@ -571,6 +604,10 @@ for i in range(200):
 
 # Tell the engine to exit                                                                                                                                     
 mdi.MDI_Send_command("EXIT", mdi_comm)
+
+total_simulation_time = MPI.Wtime() - start_simulation_time
+print("Simulation Time: " + str(total_simulation_time))
+print("Average Iteration Time: " + str(total_simulation_time / nsteps))
 ```
 
 Add the following to the end of `mdimechanic.yml`:
