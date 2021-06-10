@@ -259,10 +259,24 @@ MDI Mechanic sets the argument to the `-mdi` option to an environment variable c
 Provide MDI Mechanic with an MDI-enabled launch script by modifying the `engine_tests` field in `mdimechanic.yml` to the following:
 ```
 engine_tests:
+  node_search_distance:	1
+
+  tested_commands:
+    - '<CELL'
+    - '<CELL_DISPL'
+    - '<COORDS'
+    - '<ENERGY'
+    - '>ENERGY'
+    - '<NAME'
+    - '<NATOMS'
+    - '@INIT_MC'
+    - '@'
+    - '<@'
+
   # Provide at least one example input that can be used to test your code's MDI functionality
-  - script:
-      -	cd build/MDI_MC_Demo/MDI_MC_Demo
-      -	python MDI_MC_Demo.py -mdi "${MDI_OPTIONS}"
+  script:
+    - cd build/MDI_MC_Demo/MDI_MC_Demo
+    - python MDI_MC_Demo.py -mdi "${MDI_OPTIONS}"
 ```
 
 Now execute `mdimechanic report` in the directory where `mdimechanic.yml` is located.
