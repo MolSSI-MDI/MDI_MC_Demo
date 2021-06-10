@@ -508,7 +508,6 @@ With
             mdi.MDI_Register_command("@INIT_MC", "<@")
 
             mdi.MDI_Register_node("@ENERGY")
-            mdi.MDI_Register_callback("@ENERGY", ">ENERGY")
             mdi.MDI_Register_command("@ENERGY", "<CELL")
             mdi.MDI_Register_command("@ENERGY", "<CELL_DISPL")
             mdi.MDI_Register_command("@ENERGY", "<COORDS")
