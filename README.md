@@ -551,6 +551,7 @@ You can register the supported nodes and commands of `MDI_MC_Demo` by inserting 
 ```
 
 It is also a good practice to raise an error if the driver sends a command that is not supported at a specific node.
+Insert the following in the `mdi_node` function, just before the comment that reads `Respond to the received command`:
 ```Python
             # Check if this command is supported at this node
             if self.my_rank == 0:
