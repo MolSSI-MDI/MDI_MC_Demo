@@ -553,8 +553,9 @@ You can register the supported nodes and commands of `MDI_MC_Demo` by inserting 
 It is also a good practice to raise an error if the driver sends a command that is not supported at a specific node.
 ```Python
             # Check if this command is supported at this node
-            if not mdi.MDI_Check_command_exists(node_name, self.command, mdi.MDI_COMM_NULL):
-	        raise Exception('The following command is not supported at this node: ' + str(self.command))
+            if self.my_rank == 0:
+                if not mdi.MDI_Check_command_exists(node_name, self.command, mdi.MDI_COMM_NULL):
+                    raise Exception('The following command is not supported at this node: ' + str(self.command))
 ```
 
 We are now finished implementing MDI engine capabilities into the `MDI_MC_Demo` engine.
