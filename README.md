@@ -274,6 +274,8 @@ Success: Engine passed minimal MDI functionality test.
 Success: Engine errors out upon receiving an unsupported command.
 ```
 
+You may examine the completed report, which is located in 
+
 ## Add support for the `<NATOMS`, `<COORDS`, `<CELL`, and `<CELL_DISPL` commands
 
 We will now edit the `mdi_node` function to add support for the `<NATOMS` MDI command.
@@ -485,7 +487,9 @@ Add the following to the end of the `MCSimulation` initialization function:
 
 ## Register nodes and commands with the driver
 
-With 
+MDI allows engines to "register" nodes and commands with the MDI Library, which enables external drivers to query the capabilities of the engine.
+Because each node can potentially support a different set of commands, MDI allows the engine to register a different set of supported commands for each node.
+You can register the supported nodes and commands of `MDI_MC_Demo` by inserting the following in the `MCSimulation` initialization function, just after the line that reads `mdi.MDI_Init(mdi_options)`:
 
 ```Python
 	# Register MDI nodes and commands
@@ -496,6 +500,7 @@ With
             mdi.MDI_Register_command("@DEFAULT", "<COORDS")
             mdi.MDI_Register_command("@DEFAULT", "@INIT_MC")
             mdi.MDI_Register_command("@DEFAULT", "EXIT")
+	    mdi.MDI_Register_command("@DEFAULT", "<NATOMS")
             mdi.MDI_Register_command("@DEFAULT", "<@")
 
             mdi.MDI_Register_node("@INIT_MC")
@@ -504,6 +509,7 @@ With
             mdi.MDI_Register_command("@INIT_MC", "<COORDS")
             mdi.MDI_Register_command("@INIT_MC", "@ENERGY")
             mdi.MDI_Register_command("@INIT_MC", "EXIT")
+	    mdi.MDI_Register_command("@INIT_MC", "<NATOMS")
             mdi.MDI_Register_command("@INIT_MC", "@")
             mdi.MDI_Register_command("@INIT_MC", "<@")
 
@@ -515,12 +521,21 @@ With
             mdi.MDI_Register_command("@ENERGY", ">ENERGY")
             mdi.MDI_Register_command("@ENERGY", "@ENERGY")
             mdi.MDI_Register_command("@ENERGY", "EXIT")
+            mdi.MDI_Register_command("@ENERGY", "<NATOMS")
             mdi.MDI_Register_command("@ENERGY", "@")
             mdi.MDI_Register_command("@ENERGY", "<@")
 ```
 
+It is also a good practice to raise an error if the driver sends a command that is not supported at a specific node.
+```Python
+            # Check if this command is supported at this node
+            if not mdi.MDI_Check_command_exists(node_name, self.command, mdi.MDI_COMM_NULL):
+	        raise Exception('The following command is not supported at this node: ' + str(self.command))
+```
 
 We are now finished implementing MDI engine capabilities into the `MDI_MC_Demo` engine.
+Now would be a good time to run `mdimechanic report` to confirm that the engine's features are working as expected.
+
 In the next section, we will try controlling `MDI_MC_Demo` with a simple driver.
 
 
