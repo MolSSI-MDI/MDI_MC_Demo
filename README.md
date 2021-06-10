@@ -492,7 +492,7 @@ Because each node can potentially support a different set of commands, MDI allow
 You can register the supported nodes and commands of `MDI_MC_Demo` by inserting the following in the `MCSimulation` initialization function, just after the line that reads `mdi.MDI_Init(mdi_options)`:
 
 ```Python
-	# Register MDI nodes and commands
+        # Register MDI nodes and commands
         if self.use_mdi:
             mdi.MDI_Register_node("@DEFAULT")
             mdi.MDI_Register_command("@DEFAULT", "<CELL")
@@ -500,7 +500,7 @@ You can register the supported nodes and commands of `MDI_MC_Demo` by inserting 
             mdi.MDI_Register_command("@DEFAULT", "<COORDS")
             mdi.MDI_Register_command("@DEFAULT", "@INIT_MC")
             mdi.MDI_Register_command("@DEFAULT", "EXIT")
-	    mdi.MDI_Register_command("@DEFAULT", "<NATOMS")
+            mdi.MDI_Register_command("@DEFAULT", "<NATOMS")
             mdi.MDI_Register_command("@DEFAULT", "<@")
 
             mdi.MDI_Register_node("@INIT_MC")
@@ -509,7 +509,7 @@ You can register the supported nodes and commands of `MDI_MC_Demo` by inserting 
             mdi.MDI_Register_command("@INIT_MC", "<COORDS")
             mdi.MDI_Register_command("@INIT_MC", "@ENERGY")
             mdi.MDI_Register_command("@INIT_MC", "EXIT")
-	    mdi.MDI_Register_command("@INIT_MC", "<NATOMS")
+            mdi.MDI_Register_command("@INIT_MC", "<NATOMS")
             mdi.MDI_Register_command("@INIT_MC", "@")
             mdi.MDI_Register_command("@INIT_MC", "<@")
 
