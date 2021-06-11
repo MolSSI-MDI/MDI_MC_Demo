@@ -373,7 +373,7 @@ First, we must receive the energy from the driver and broadcast it to all MPI ra
 ```Python
             elif self.command == ">ENERGY":
                 if energy is None:
-                    raise Exception('The <ENERGY command was received, but the energy is not available')
+                    raise Exception('The >ENERGY command was received, but the energy is not available')
 
                 # Receive the energy from the driver
                 mdi_energy = mdi.MDI_Recv(1, mdi.MDI_DOUBLE, self.mdi_comm)
@@ -391,7 +391,7 @@ Zero the value of this variable at the beginning of the `mdi_node` function:
     def mdi_node(self, node_name, coordinates=None, energy=None):
         self.delta_energy_from_driver = 0.0
 ```
-Note that the `>ENERGY` command doesn't affect the calculation in any way - the `self.delta_energy_from_driver` variable is not currently used anywhere else in the code.
+Note that the `>ENERGY` command doesn't currently affect the calculation in any way - the `self.delta_energy_from_driver` variable is not currently used anywhere else in the code.
 We will address this issue in the next section.
 
 
