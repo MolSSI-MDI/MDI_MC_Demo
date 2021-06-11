@@ -20,7 +20,7 @@ This tutorial will use [MDI Mechanic](https://github.com/MolSSI-MDI/MDI_Mechanic
 
 ```pip install mdimechanic```
 
-MDI Mechanic uses Docker extensively, so you must also install Docker and launch Docker Desktop.
+MDI Mechanic uses Docker extensively, so **you must also install Docker Desktop and launch it**.
 In order to more easily view the output from MDI Mechanic, it is recommended that you install an offline markdown viewer, such as `grip`:
 
 ```pip install grip```
@@ -47,9 +47,9 @@ This tutorial will go over each field in mdimechanic.yml in detail, but the foll
 
 * **code_name:** The name of your code, which is used when printing out information.
 * **image_name:** MDI Mechanic will create an Docker image, which will contain a highly portable environment that can be used to reproducibly build and run your engine. This field sets the name of the engine MDI Mechanic will create.
-* **build_image:** This provides a script that is used to build the Docker image that MDI Mechanic builds. It corresponds to the steps required to prepare an environment with all of your engine's dependencies, and is comparable to a before_install step in some CI services.
-* **build_engine:** This provides a script to build your engine. It is executed within the context of the Docker image built by MDI Mechanic, and is comparable to an install step in some CI services.
-* **validate_engine:** This provides a script to verify that your engine has been built successfully. It is comparable to a script step in some CI services.
+* **build_image:** This provides a script that is used to build the Docker image that MDI Mechanic builds. It corresponds to the steps required to prepare an environment with all of your engine's dependencies, and is comparable to a `before_install` step in some CI services.
+* **build_engine:** This provides a script to build your engine. It is executed within the context of the Docker image built by MDI Mechanic, and is comparable to an `install` step in some CI services.
+* **validate_engine:** This provides a script to verify that your engine has been built successfully. It is comparable to a `script` step in some CI services.
 * **engine_tests:** This provides scripts used to test MDI functionality in your engine.
 
 For now, just replace the value of `code_name` with the name of the engine (`MDI_MC_Demo`), and set the value of `image_name` to `mdi_mc_demo/mdi_report`
@@ -58,7 +58,7 @@ For now, just replace the value of `code_name` with the name of the engine (`MDI
 
 This tutorial uses MDI Mechanic, which in turn runs your code within the context of a Docker image
 In crude terms, you can think of an image as being a simulated duplicate of another computer, which has a different environment from yours (i.e. different installed libraries and system settings), and might be running an entirely different operating system.
-The image created by MDI Mechanic is based on the Ubunto Linux distribution.
+The image created by MDI Mechanic is based on the Ubuntu Linux distribution.
 Starting from the basic Linux environment, MDI Mechanic installs some basic compilers (`gcc`, `g++`, and `gfortran`), an MPI library (`MPICH`), Python 3, and a handful of other dependencies (`make` and `openssh`).
 To finish building the image, MDI Mechanic executes whatever script you've provided in the `build_image` section of `mdimechanic.yml`.
 
@@ -71,7 +71,7 @@ import numpy as np
 ```
 
 We want both of these dependencies to be installed during the `build_image` step.
-In addition, we should install the cmake and the MDI Library, as the engine will need it later.
+In addition, we should install cmake and the MDI Library, as the engine will need it later.
 Finally, we will want the image to have `git` installed, so that we can acquire a copy of the MDI_MC_Demo GitHub repository.
 Modify the `build_image` step to read:
 ```
@@ -195,7 +195,7 @@ Immediately after these lines, initialize the MDI Library:
 
 Under the comment that reads `MPI Initialization` is the following line:
 ```Python
-    world_comm = MPI.COMM_WORLD
+    self.world_comm = MPI.COMM_WORLD
 ```
 Replace this line with:
 ```Python
