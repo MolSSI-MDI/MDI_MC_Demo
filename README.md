@@ -411,8 +411,8 @@ Furthermore, we want to implement this in a way that enables the external driver
 To this end, we need `MDI_MC_Demo` to implement a node called `@INIT_MC`, which is one of a small number of nodes that is defined by the MDI Standard.
 This node corresponds to the moment "upon initializing a new Monte Carlo simulation," and is important because it effectively allows a driver to command an engine to begin a Monte Carlo simulation.
 In a sense, this may seem redundant or unnecessary for `MDI_MC_Demo`; after all, the only thing `MDI_MC_Demo` can do is run Monte Carlo simulations, so why does the driver need to specifically command it to begin a Monte Carlo simulation?
-The reason we still need to implement an `@INIT_MC` node is because there are other engines that are capable of running Monte Carlo simulations, **and** molecular dynamics simulations, **and** geometry optimizations; in those cases, a driver needs to be able to specify to the engine whether it should begin a Monte Carlo simulations (by sending the `@INIT_MC` command), or a molecular dynamics simulation (by sending the `@INIT_MD` command), or a geometry optimization (by sending the `@INIT_OPTG` command).
-For the purpose of enabling drivers to be designed portably, the `MDI_MC_Demo` needs to implement an `@INIT_MC` node.
+The reason we still need to implement an `@INIT_MC` node is because there are other engines that are capable of running Monte Carlo simulations, **and** molecular dynamics simulations, **and** geometry optimizations; in those cases, a driver needs to be able to specify to the engine whether it should begin a Monte Carlo simulation (by sending the `@INIT_MC` command), or a molecular dynamics simulation (by sending the `@INIT_MD` command), or a geometry optimization (by sending the `@INIT_OPTG` command).
+For the purpose of enabling drivers to be designed portably, `MDI_MC_Demo` needs to implement an `@INIT_MC` node.
 
 Add the `@INIT_MC` node immediately after the `@DEFAULT` node, so that the first few lines of `run` are:
 ```Python
