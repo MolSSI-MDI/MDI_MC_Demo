@@ -256,9 +256,8 @@ For example:
 python MDI_MC_Demo.py -mdi "-name engine -role ENGINE -method TCP -hostname localhost -port 8021"
 ```
 MDI Mechanic sets the argument to the `-mdi` option to an environment variable called `MDI_OPTIONS`.
-Provide MDI Mechanic with an MDI-enabled launch script by modifying the `engine_tests` field in `mdimechanic.yml` to the following:
+Provide MDI Mechanic with an MDI-enabled launch script by modifying the contents of the `engine_tests` field in `mdimechanic.yml` to the following:
 ```
-engine_tests:
   node_search_distance: 1
 
   tested_commands:
