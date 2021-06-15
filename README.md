@@ -665,6 +665,19 @@ Execute the following command from the directory where `mdimechanic.yml` is loca
 mdimechanic rundriver --name test_driver
 ```
 
+This will run somewhat slowly, because MDI Mechanic is using TCP for communication.
+If we run the driver and engine manually, we can instead use MPI-based communication.
+Execute the following on the command line, from the same directory where `mdimechanic.yml` is located:
+
+```
+mpiexec -n 2 python build/MDI_MC_Demo/MDI_MC_Demo/MDI_MC_Demo.py \
+        -mdi "-name TESTCODE -role ENGINE -method MPI -out engine.out" : \
+        -n 1 python test_driver/test_driver.py \
+        -mdi "-name driver -role DRIVER -method MPI"
+```
+
+You may also want to try increasing the number of iterations the driver runs.
+
 
 ### Copyright
 
