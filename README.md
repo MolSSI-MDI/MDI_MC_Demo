@@ -575,7 +575,7 @@ import mdi
 import sys
 from mpi4py import MPI
 
-# Receive the -mdi option                                                                                                                                     
+# Receive the -mdi option
 mdi_options = None
 use_mdi = False
 for iarg in range( len(sys.argv) ):
@@ -588,44 +588,44 @@ for iarg in range( len(sys.argv) ):
 if not use_mdi:
     raise Exception('-mdi option was not provided')
 
-# Initialize MDI                                                                                                                                              
+# Initialize MDI
 mdi.MDI_Init(mdi_options)
 
-# Establish a connection with the engine                                                                                                                      
+# Establish a connection with the engine
 mdi_comm = mdi.MDI_Accept_communicator()
 
-# Get the name of the engine                                                                                                                                  
+# Get the name of the engine
 mdi.MDI_Send_command("<NAME", mdi_comm)
 engine_name = mdi.MDI_Recv(mdi.MDI_NAME_LENGTH, mdi.MDI_CHAR, mdi_comm)
 print("Engine name: " + str(engine_name))
 
-# Get the number of atoms in the system                                                                                                                       
+# Get the number of atoms in the system
 mdi.MDI_Send_command("<NATOMS", mdi_comm)
 natoms = mdi.MDI_Recv(1, mdi.MDI_INT, mdi_comm)
 
-# Initialize an MC simulation                                                                                                                                 
+# Initialize an MC simulation
 mdi.MDI_Send_command("@INIT_MC", mdi_comm)
 
 start_simulation_time = MPI.Wtime()
 
-nsteps = 1000
+nsteps = 100
 for i in range(nsteps):
-    # Proceed to the next node                                                                                                                                
+    # Proceed to the next node
     mdi.MDI_Send_command("@", mdi_comm)
 
-    # Request the name of the node                                                                                                                            
+    # Request the name of the node
     mdi.MDI_Send_command("<@", mdi_comm)
     node_name = mdi.MDI_Recv(mdi.MDI_NAME_LENGTH, mdi.MDI_CHAR, mdi_comm)
 
-    # Get the energy                                                                                                                                          
+    # Get the energy
     mdi.MDI_Send_command("<ENERGY", mdi_comm)
     energy = mdi.MDI_Recv(1, mdi.MDI_DOUBLE, mdi_comm)
 
-    # Get the coordinates                                                                                                                                     
+    # Get the coordinates
     mdi.MDI_Send_command("<COORDS", mdi_comm)
     coords = mdi.MDI_Recv(3*natoms, mdi.MDI_DOUBLE, mdi_comm)
 
-    # Count the number of atoms that are located at x > 0.0                                                                                                   
+    # Count the number of atoms that are located at x > 0.0
     count = 0
     for	iatom in range(natoms):
         if coords[3*iatom + 0] > 0.0:
@@ -633,15 +633,15 @@ for i in range(nsteps):
     fraction = float(count) / float(natoms)
     print("Energy, Fraction: " + str(energy) + " " + str(fraction))
 
-    # Add a new term to the energy                                                                                                                            
+    # Add a new term to the energy
     energy += 100.0 * count
 
-    # Send the new energy                                                                                                                                     
+    # Send the new energy
     mdi.MDI_Send_command(">ENERGY", mdi_comm)
     mdi.MDI_Send(energy, 1, mdi.MDI_DOUBLE, mdi_comm)
 
 
-# Tell the engine to exit                                                                                                                                     
+# Tell the engine to exit
 mdi.MDI_Send_command("EXIT", mdi_comm)
 
 total_simulation_time = MPI.Wtime() - start_simulation_time
