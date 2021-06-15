@@ -459,6 +459,11 @@ Insert the following just before the comment that reads `Accept or reject the st
                 if self.command == "EXIT":
                     return
 ```
+Also, to ensure that the engine continues to print the engine's energy, rather than the energy from the engine, add the following immediately after the line that reads `if accept:`:
+```Python
+                    if self.use_mdi:
+                        delta_e -= new_driver_delta - previous_driver_delta
+```
 
 Finally, there are some node-related commands that we need to support.
 Add the following to the `mdi_node` `if ... else`:
@@ -567,7 +572,7 @@ In the next section, we will try controlling `MDI_MC_Demo` with a simple driver.
 ## Create a simple driver
 
 From the directory where `mdimechanic.yml` is located, create a subdirectory called `test_driver`, and within that directory, create a file called `test_driver.py`.
-
+We'll write a very simple driver that adds a penalty function for any particle that is located at an `x` coordinate greater than `0.0`.
 Add the following to `test_driver.py`:
 
 ```Python
