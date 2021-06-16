@@ -449,6 +449,9 @@ Insert the following just before the comment that reads `Accept or reject the st
             if self.use_mdi:
 
                 # @ENERGY node
+                if 'accept' in locals():
+                    if accept:
+                        total_pair_energy += previous_driver_delta - new_driver_delta
                 previous_driver_delta = self.delta_energy_from_driver
                 self.mdi_node("@ENERGY",
                               coordinates=proposed_coordinates,
@@ -458,11 +461,6 @@ Insert the following just before the comment that reads `Accept or reject the st
 
                 if self.command == "EXIT":
                     return
-```
-Also, to ensure that the engine continues to print the engine's energy, rather than the energy from the engine, add the following immediately after the line that reads `if accept:`:
-```Python
-                    if self.use_mdi:
-                        delta_e -= new_driver_delta - previous_driver_delta
 ```
 
 Finally, there are some node-related commands that we need to support.
